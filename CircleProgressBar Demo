@@ -1,0 +1,66 @@
+Option Explicit
+
+Public Sub CircleProgressBarDemo()
+
+    Dim value1 As Long: value1 = 0
+    Dim value2 As Long: value2 = 0
+    Dim value3 As Long: value3 = 0
+
+    Dim cpb1 As New CircleProgressBar
+    With cpb1
+        .MainLabel = "Readability"
+        .BarColor = rgbDarkOrange
+        .Max = 47
+        .StatusLabel = "0／" & CStr(.Max)
+        .OpenBar 20, 50
+    End With
+    
+    Application.Wait [Now()+"00:00:00.3"]
+    
+    Dim cpb2 As New CircleProgressBar
+    With cpb2
+        .MainLabel = "Maintainability"
+        .BarColor = rgbPaleGoldenrod
+        .Max = 45
+        .StatusLabel = "0／" & CStr(.Max)
+        .OpenBar 200, 50
+    End With
+    
+    Application.Wait [Now()+"00:00:00.3"]
+    
+    Dim cpb3 As New CircleProgressBar
+    With cpb3
+        .MainLabel = "Simplicity"
+        .BarColor = rgbLimeGreen
+        .Max = 52
+        .StatusLabel = "0／" & CStr(.Max)
+        .OpenBar 380, 50
+    End With
+    
+    Application.Wait [Now()+"00:00:00.5"]
+    
+    Do While value1 < cpb1.Max Or value2 < cpb2.Max Or value3 < cpb3.Max
+        If value1 < cpb1.Max Then
+            value1 = value1 + Int(Rnd() * 2)
+            If value1 >= cpb1.Max Then value1 = cpb1.Max
+            cpb1.UpdateBar value1, value1 & "／" & cpb1.Max
+        End If
+        If value2 < cpb2.Max Then
+            value2 = value2 + Int(Rnd() * 2)
+            If value2 >= cpb2.Max Then value2 = cpb2.Max
+            cpb2.UpdateBar value2, value2 & "／" & cpb2.Max
+        End If
+        If value3 < cpb3.Max Then
+            value3 = value3 + Int(Rnd() * 2)
+            If value3 >= cpb3.Max Then value3 = cpb3.Max
+            cpb3.UpdateBar value3, value3 & "／" & cpb3.Max
+        End If
+        Application.Wait [Now()+"00:00:00.05"]
+    Loop
+    
+    Application.Wait [Now()+"00:00:01"]
+    cpb1.CloseBar
+    cpb2.CloseBar
+    cpb3.CloseBar
+    
+End Sub
