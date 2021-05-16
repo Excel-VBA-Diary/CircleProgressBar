@@ -1,0 +1,246 @@
+Option Explicit
+
+'Circle Progress Barを表示するワークシート
+Public CPBWorksheet As Worksheet
+
+'Circle Progress Barの表示位置
+Public Left As Single
+Public Top As Single
+
+'Circle Progress Barのメインラベル、ステータスラベル、色（RGB値）
+Public MainLabel As String
+Public StatusLabel As String
+Public BarColor As Long
+
+'Circle Progress Barの値、最大値
+Public Value As Long
+Public Max As Long
+
+'Circle Progress Barのメーターが100%になったときに
+'チェックマークを表示する場合True（規定値）、しない場合False を指定する
+Public AddCheckMark As Boolean
+
+Private backLine As Shape
+Private meterBar As Shape
+Private percentBox As Shape
+Private mainLabelBox As Shape
+Private statusLabelBox As Shape
+Private checkMark As Shape
+
+'生成する画像の共通代替テキスト（画像の消去に使う）
+Private cpb_AlternativeText As String
+
+'Circle Progress Barのデザイン定数
+Private Const circleStartAngle As Double = 130
+Private Const circleEndAngle As Double = 50
+Private Const circleEffectiveAngle As Double = 360 - circleStartAngle + circleEndAngle
+Private Const circleWeight As Double = 0.1
+    
+    
+'-------------------------------------------------------------------------------
+'自身のオブジェクトを返す
+'-------------------------------------------------------------------------------
+Public Property Get Self() As CircleProgressBar
+    Set Self = Me
+End Property
+    
+    
+'-------------------------------------------------------------------------------
+'Circle Progress Barを開く
+'-------------------------------------------------------------------------------
+Public Sub OpenBar(Left As Single, Top As Single, Optional TargetWorksheet As Worksheet = Nothing)
+
+    cpb_AlternativeText = "cpb_" & CStr(ObjPtr(Me))
+    
+    Left = Left
+    Top = Top
+
+    If TargetWorksheet Is Nothing Then
+        Set CPBWorksheet = ActiveSheet
+    Else
+        Set CPBWorksheet = TargetWorksheet
+    End If
+
+    'メーターの背景線
+    Set backLine = CPBWorksheet.Shapes.AddShape(msoShapeBlockArc, Left, Top, 150, 150)
+    With backLine
+        .AlternativeText = cpb_AlternativeText
+        .Adjustments.Item(1) = circleStartAngle
+        .Adjustments.Item(2) = circleEndAngle
+        .Adjustments.Item(3) = circleWeight
+        .Fill.ForeColor.RGB = rgbWhite
+        .Fill.Transparency = 0.2
+        .Line.Weight = 0.5
+        .Line.ForeColor.RGB = rgbGray
+    End With
+    
+    'メーターバー
+    Set meterBar = CPBWorksheet.Shapes.AddShape(msoShapeBlockArc, Left, Top, 150, 150)
+    With meterBar
+        .AlternativeText = cpb_AlternativeText
+        .Line.Visible = msoFalse
+        .Fill.ForeColor.RGB = rgbWhite
+        .Adjustments.Item(1) = circleStartAngle
+        .Adjustments.Item(2) = -(360 - circleStartAngle - 1)
+        .Adjustments.Item(3) = circleWeight
+        With .Shadow
+            .Type = msoShadow25
+            .Visible = msoTrue
+            .Style = msoShadowStyleOuterShadow
+            .Blur = 15
+            .OffsetX = 8
+            .OffsetY = 8
+            .RotateWithShape = msoTrue
+            .ForeColor.RGB = rgbBlack
+            .Transparency = 0.1
+        End With
+    End With
+
+    'パーセント表示ボックス
+    Set percentBox = CPBWorksheet.Shapes.AddTextbox(msoTextOrientationHorizontal, Left + 30, Top + 50, 95, 43)
+    With percentBox
+        .AlternativeText = cpb_AlternativeText
+        .Fill.Visible = msoFalse
+        .Line.Visible = msoFalse
+        With .TextFrame2
+            .VerticalAnchor = msoAnchorMiddle
+            .TextRange.Characters.Text = "0%"
+            .TextRange.ParagraphFormat.Alignment = msoAlignCenter
+            .TextRange.Font.Name = "Cooper Black"
+            .TextRange.Font.Size = 30
+            With .TextRange.Font.Glow
+                .Color.RGB = rgbWhite
+                .Color.TintAndShade = 0
+                .Color.Brightness = 0
+                .Transparency = 0
+                .Radius = 30
+            End With
+        End With
+    End With
+
+    'タイトル
+    Set mainLabelBox = CPBWorksheet.Shapes.AddTextbox(msoTextOrientationHorizontal, Left + 5, Top + 135, 140, 20)
+    With mainLabelBox
+        .AlternativeText = cpb_AlternativeText
+        .Fill.Visible = msoFalse
+        .Line.Visible = msoFalse
+        With .TextFrame2
+            .VerticalAnchor = msoAnchorMiddle
+            .TextRange.Characters.Text = MainLabel
+            .TextRange.ParagraphFormat.Alignment = msoAlignCenter
+            .TextRange.Font.Name = "Arial"
+            .TextRange.Font.Size = 16
+            .TextRange.Font.Bold = msoTrue
+            With .TextRange.Font.Glow
+                .Color.RGB = rgbWhite
+                .Color.TintAndShade = 0
+                .Color.Brightness = 0
+                .Transparency = 0
+                .Radius = 20
+            End With
+        End With
+    End With
+
+    'サブタイトル
+    Set statusLabelBox = CPBWorksheet.Shapes.AddTextbox(msoTextOrientationHorizontal, Left + 5, Top + 157, 140, 20)
+    With statusLabelBox
+        .AlternativeText = cpb_AlternativeText
+        .Fill.Visible = msoFalse
+        .Line.Visible = msoFalse
+        With .TextFrame2
+            .VerticalAnchor = msoAnchorMiddle
+            .TextRange.Characters.Text = StatusLabel
+            .TextRange.ParagraphFormat.Alignment = msoAlignCenter
+            .TextRange.Font.Name = "Arial"
+            .TextRange.Font.Size = 16
+            .TextRange.Font.Bold = msoTrue
+            With .TextRange.Font.Glow
+                .Color.RGB = rgbWhite
+                .Color.TintAndShade = 0
+                .Color.Brightness = 0
+                .Transparency = 0
+                .Radius = 20
+            End With
+        End With
+    End With
+    
+    DoEvents
+
+End Sub
+
+
+'-------------------------------------------------------------------------------
+'Circle Progress Barのメーターを更新する
+'-------------------------------------------------------------------------------
+Public Sub UpdateBar(Value As Long, Status As String)
+    With meterBar
+        If (Value / Max) >= (1 / circleEffectiveAngle) Then
+            If Value >= Max Then
+                Value = Max
+                If AddCheckMark Then PutCheckMark
+            End If
+            .Adjustments.Item(2) = -(360 - circleStartAngle) + circleEffectiveAngle * Value / Max
+            .Fill.ForeColor.RGB = BarColor
+        Else
+            .Adjustments.Item(2) = -(360 - circleStartAngle - 1)
+            .Fill.ForeColor.RGB = rgbWhite
+        End If
+    End With
+    percentBox.TextFrame2.TextRange.Characters.Text = CStr(Int(Value / Max * 100)) & "%"
+    StatusLabel = Status
+    statusLabelBox.TextFrame2.TextRange.Characters.Text = StatusLabel
+    DoEvents
+End Sub
+
+
+'-------------------------------------------------------------------------------
+'Circle Progress Barを閉じる（生成した画像を消去する）
+'-------------------------------------------------------------------------------
+Public Sub CloseBar()
+    Dim s As Shape
+    For Each s In CPBWorksheet.Shapes
+        If s.AlternativeText = cpb_AlternativeText Then s.Delete
+    Next
+End Sub
+
+
+'-------------------------------------------------------------------------------
+'Circle Progress Barにチェックマークを表示する
+'-------------------------------------------------------------------------------
+Private Sub PutCheckMark()
+    If Not checkMark Is Nothing Then Exit Sub
+    Set checkMark = CPBWorksheet.Shapes.AddShape(msoShapeCorner, Left + 66, Top + 95, 28, 16)
+    With checkMark
+        .AlternativeText = cpb_AlternativeText
+        .IncrementRotation -42
+        .Adjustments.Item(1) = 0.25
+        .Adjustments.Item(2) = 0.25
+        .Line.Visible = msoFalse
+        .Fill.Visible = msoTrue
+        .Fill.ForeColor.RGB = rgbGray
+    End With
+    DoEvents
+End Sub
+
+
+'-------------------------------------------------------------------------------
+'Circle Progress Barの初期値を設定する
+'-------------------------------------------------------------------------------
+Private Sub Class_Initialize()
+    Left = 100
+    Top = 100
+    MainLabel = "Main Label"
+    StatusLabel = "Status Label"
+    BarColor = rgbRoyalBlue
+    Value = 0
+    Max = 100
+    AddCheckMark = True
+End Sub
+
+
+'-------------------------------------------------------------------------------
+'Circle Progress Barの後処理（現時点では何もしない）
+'-------------------------------------------------------------------------------
+Private Sub Class_Terminate()
+
+End Sub
